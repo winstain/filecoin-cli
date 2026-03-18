@@ -10,7 +10,8 @@
     "build": "tsc",
     "dev": "tsx src/index.ts",
     "test": "jest --runInBand --verbose",
-    "test:coverage": "jest --runInBand --coverage --forceExit"
+    "test:coverage": "jest --runInBand --coverage --forceExit",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "filecoin",
@@ -18,8 +19,8 @@
     "storage",
     "cli"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "winstain",
+  "license": "MIT",
   "type": "commonjs",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
@@ -34,5 +35,13 @@
     "@types/node": "^25.5.0",
     "jest": "^30.3.0",
     "ts-jest": "^29.4.6"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/winstain/filecoin-cli.git"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
 }
