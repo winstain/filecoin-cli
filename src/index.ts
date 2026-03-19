@@ -7,6 +7,7 @@ import { makeMinerCommand } from './commands/miner';
 import { makeActorCommand } from './commands/actor';
 import { makeIpfsCommand } from './commands/ipfs';
 import { makeAddressCommand } from './commands/address';
+import { makeMessageCommand, makeTransferCommand } from './commands/message';
 
 const pkg = require('../package.json');
 
@@ -23,6 +24,8 @@ program.addCommand(makeMinerCommand());
 program.addCommand(makeActorCommand());
 program.addCommand(makeIpfsCommand());
 program.addCommand(makeAddressCommand());
+program.addCommand(makeMessageCommand());
+program.addCommand(makeTransferCommand());
 
 // MCP server subcommand
 program

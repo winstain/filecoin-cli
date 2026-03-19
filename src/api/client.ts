@@ -68,6 +68,25 @@ export class FilecoinClient {
     return await this.rpc('Filecoin.StateLookupID', [address, null]);
   }
 
+  async getMessageNonce(address: string): Promise<number> {
+    return await this.rpc('Filecoin.MpoolGetNonce', [address]);
+  }
+
+  async estimateMessageGas(message: {
+    Version: number;
+    To: string;
+    From: string;
+    Nonce: number;
+    Value: string;
+    GasLimit: number;
+    GasFeeCap: string;
+    GasPremium: string;
+    Method: number;
+    Params: string;
+  }): Promise<{ GasLimit: number; GasFeeCap: string; GasPremium: string }> {
+    return await this.rpc('Filecoin.GasEstimateMessageGas', [message, { MaxFee: '0' }, null]);
+  }
+
   async getActorInfo(address: string): Promise<{ code: string; head: string; nonce: number; balance: string }> {
     const result = await this.rpc('Filecoin.StateGetActor', [address, null]);
     return {

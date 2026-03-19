@@ -77,6 +77,23 @@ describe('FilecoinClient', () => {
     });
   });
 
+  describe('getMessageNonce', () => {
+    test('returns mempool nonce', async () => {
+      mockRpcResponse(12);
+      expect(await client.getMessageNonce('f1from')).toBe(12);
+    });
+  });
+
+  describe('estimateMessageGas', () => {
+    test('returns estimated gas fields', async () => {
+      mockRpcResponse({ GasLimit: 101325, GasFeeCap: '100', GasPremium: '3' });
+      const result = await client.estimateMessageGas({ Version: 0, To: 'f1to', From: 'f1from', Nonce: 1, Value: '10', GasLimit: 0, GasFeeCap: '0', GasPremium: '0', Method: 0, Params: '' });
+      expect(result.GasLimit).toBe(101325);
+      expect(result.GasFeeCap).toBe('100');
+      expect(result.GasPremium).toBe('3');
+    });
+  });
+
   describe('getMinerInfo', () => {
     test('returns miner data', async () => {
       mockRpcResponse({ Owner: 'f01', Worker: 'f02', SectorSize: 34359738368, PeerId: 'peer123' });

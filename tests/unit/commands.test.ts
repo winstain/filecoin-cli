@@ -7,6 +7,8 @@ const mockGetMinerInfo = jest.fn();
 const mockGetMinerPower = jest.fn();
 const mockGetActorInfo = jest.fn();
 const mockLookupAddress = jest.fn();
+const mockGetMessageNonce = jest.fn();
+const mockEstimateMessageGas = jest.fn();
 const mockResolveIpfs = jest.fn();
 const mockFetchIpfs = jest.fn();
 
@@ -21,6 +23,8 @@ jest.mock('../../src/api/client', () => ({
     getMinerPower: mockGetMinerPower,
     getActorInfo: mockGetActorInfo,
     lookupAddress: mockLookupAddress,
+    getMessageNonce: mockGetMessageNonce,
+    estimateMessageGas: mockEstimateMessageGas,
     resolveIpfs: mockResolveIpfs,
     fetchIpfs: mockFetchIpfs,
   })),
@@ -38,6 +42,7 @@ import { makeMinerCommand } from '../../src/commands/miner';
 import { makeActorCommand } from '../../src/commands/actor';
 import { makeIpfsCommand } from '../../src/commands/ipfs';
 import { makeAddressCommand } from '../../src/commands/address';
+import { makeMessageCommand, makeTransferCommand } from '../../src/commands/message';
 
 describe('commands', () => {
   const originalLog = console.log;
@@ -60,6 +65,8 @@ describe('commands', () => {
     mockGetMinerPower.mockResolvedValue({ minerPower: '1000', totalPower: '99999', hasMinPower: true });
     mockGetActorInfo.mockResolvedValue({ code: 'bafk', head: 'bafy', nonce: 5, balance: '1000000000000000000' });
     mockLookupAddress.mockResolvedValue('f01234');
+    mockGetMessageNonce.mockResolvedValue(12);
+    mockEstimateMessageGas.mockResolvedValue({ GasLimit: 101325, GasFeeCap: '100', GasPremium: '3' });
     mockResolveIpfs.mockResolvedValue({ url: 'https://ipfs.io/ipfs/Qm', contentType: 'text/plain', size: 1024 });
     mockFetchIpfs.mockResolvedValue('hello world');
   });
@@ -120,5 +127,26 @@ describe('commands', () => {
     test('pretty with long content truncates', async () => { mockFetchIpfs.mockResolvedValue('x'.repeat(3000)); const cmd = makeIpfsCommand(); await cmd.parseAsync(['cat', '--cid', 'QmTest', '--pretty'], { from: 'user' }); expect(stdoutOutput.join('\n')).toContain('3000 bytes total'); });
     test('error', async () => { mockFetchIpfs.mockRejectedValue(new Error('fail')); const cmd = makeIpfsCommand(); await cmd.parseAsync(['cat', '--cid', 'QmTest'], { from: 'user' }); expect(JSON.parse(stderrOutput[0]).code).toBe('IPFS_ERROR'); });
     test('non-Error', async () => { mockFetchIpfs.mockRejectedValue(false); const cmd = makeIpfsCommand(); await cmd.parseAsync(['cat', '--cid', 'QmTest'], { from: 'user' }); expect(JSON.parse(stderrOutput[0]).code).toBe('UNKNOWN'); });
+  });
+
+  describe('message build', () => {
+    test('JSON output with estimated nonce and gas', async () => { const cmd = makeMessageCommand(); await cmd.parseAsync(['build', '--from', 'f1from', '--to', 'f01234', '--value', '10'], { from: 'user' }); const o = JSON.parse(stdoutOutput.join('')); expect(o.kind).toBe('filecoin_unsigned_message'); expect(o.message.Nonce).toBe(12); expect(o.message.GasLimit).toBe(101325); expect(o.message.Method).toBe(0); expect(o.moonpay.transaction.To).toBe('f01234'); });
+    test('pretty output', async () => { const cmd = makeMessageCommand(); await cmd.parseAsync(['build', '--from', 'f1from', '--to', 'f01234', '--value', '10', '--pretty'], { from: 'user' }); expect(stdoutOutput.join('\n')).toContain('Unsigned Filecoin Message'); });
+    test('explicit nonce and gas skips estimation', async () => { const cmd = makeMessageCommand(); await cmd.parseAsync(['build', '--from', 'f1from', '--to', 'f01234', '--value', '10', '--nonce', '9', '--gas-limit', '123', '--gas-fee-cap', '5', '--gas-premium', '2', '--method', '2', '--params', 'AQI='], { from: 'user' }); const o = JSON.parse(stdoutOutput.join('')); expect(o.message.Nonce).toBe(9); expect(o.message.GasLimit).toBe(123); expect(o.message.Method).toBe(2); expect(o.message.Params).toBe('AQI='); expect(mockEstimateMessageGas).not.toHaveBeenCalled(); });
+    test('partial explicit gas keeps explicit fields and fills missing estimates', async () => { const cmd = makeMessageCommand(); await cmd.parseAsync(['build', '--from', 'f1from', '--to', 'f01234', '--value', '10', '--gas-limit', '123'], { from: 'user' }); const o = JSON.parse(stdoutOutput.join('')); expect(o.message.GasLimit).toBe(123); expect(o.message.GasFeeCap).toBe('100'); expect(o.message.GasPremium).toBe('3'); });
+    test('partial explicit fee cap keeps explicit field and fills missing estimates', async () => { const cmd = makeMessageCommand(); await cmd.parseAsync(['build', '--from', 'f1from', '--to', 'f01234', '--value', '10', '--gas-fee-cap', '9'], { from: 'user' }); const o = JSON.parse(stdoutOutput.join('')); expect(o.message.GasLimit).toBe(101325); expect(o.message.GasFeeCap).toBe('9'); expect(o.message.GasPremium).toBe('3'); });
+    test('partial explicit premium keeps explicit field and fills missing estimates', async () => { const cmd = makeMessageCommand(); await cmd.parseAsync(['build', '--from', 'f1from', '--to', 'f01234', '--value', '10', '--gas-premium', '7'], { from: 'user' }); const o = JSON.parse(stdoutOutput.join('')); expect(o.message.GasLimit).toBe(101325); expect(o.message.GasFeeCap).toBe('100'); expect(o.message.GasPremium).toBe('7'); });
+    test('missing estimated gas fields fall back to zeroes', async () => { mockEstimateMessageGas.mockResolvedValue({}); const cmd = makeMessageCommand(); await cmd.parseAsync(['build', '--from', 'f1from', '--to', 'f01234', '--value', '10'], { from: 'user' }); const o = JSON.parse(stdoutOutput.join('')); expect(o.message.GasLimit).toBe(0); expect(o.message.GasFeeCap).toBe('0'); expect(o.message.GasPremium).toBe('0'); });
+    test('invalid value', async () => { const cmd = makeMessageCommand(); await cmd.parseAsync(['build', '--from', 'f1from', '--to', 'f01234', '--value', '1.5'], { from: 'user' }); expect(JSON.parse(stderrOutput[0]).code).toBe('INVALID_INPUT'); });
+    test('invalid method', async () => { const cmd = makeMessageCommand(); await cmd.parseAsync(['build', '--from', 'f1from', '--to', 'f01234', '--value', '10', '--method', 'abc'], { from: 'user' }); expect(JSON.parse(stderrOutput[0]).code).toBe('INVALID_INPUT'); expect(JSON.parse(stderrOutput[0]).error).toContain('non-negative integer'); });
+    test('unsafe integer nonce', async () => { const cmd = makeMessageCommand(); await cmd.parseAsync(['build', '--from', 'f1from', '--to', 'f01234', '--value', '10', '--nonce', '9007199254740992'], { from: 'user' }); expect(JSON.parse(stderrOutput[0]).code).toBe('INVALID_INPUT'); expect(JSON.parse(stderrOutput[0]).error).toContain('safe integer'); });
+    test('non-Error', async () => { mockGetNetworkName.mockRejectedValue(null); const cmd = makeMessageCommand(); await cmd.parseAsync(['build', '--from', 'f1from', '--to', 'f01234', '--value', '10'], { from: 'user' }); expect(JSON.parse(stderrOutput[0]).code).toBe('UNKNOWN'); });
+  });
+
+  describe('transfer', () => {
+    test('JSON output', async () => { const cmd = makeTransferCommand(); await cmd.parseAsync(['--from', 'f1from', '--to', 'f1to', '--value', '99'], { from: 'user' }); const o = JSON.parse(stdoutOutput.join('')); expect(o.message.Method).toBe(0); expect(o.message.Params).toBe(''); expect(o.message.Value).toBe('99'); });
+    test('pretty output', async () => { const cmd = makeTransferCommand(); await cmd.parseAsync(['--from', 'f1from', '--to', 'f1to', '--value', '99', '--pretty'], { from: 'user' }); expect(stdoutOutput.join('\n')).toContain('Unsigned FIL Transfer'); });
+    test('rpc-backed error', async () => { mockGetMessageNonce.mockRejectedValue(new Error('boom')); const cmd = makeTransferCommand(); await cmd.parseAsync(['--from', 'f1from', '--to', 'f1to', '--value', '99'], { from: 'user' }); expect(JSON.parse(stderrOutput[0]).code).toBe('INVALID_INPUT'); });
+    test('non-Error', async () => { mockGetNetworkName.mockRejectedValue(undefined); const cmd = makeTransferCommand(); await cmd.parseAsync(['--from', 'f1from', '--to', 'f1to', '--value', '99'], { from: 'user' }); expect(JSON.parse(stderrOutput[0]).code).toBe('UNKNOWN'); });
   });
 });
