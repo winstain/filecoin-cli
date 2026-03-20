@@ -5,12 +5,14 @@ import { FilecoinClient } from './api/client';
 import { getRpcUrl, getIpfsGateway } from './config/store';
 import { formatFil, formatBytes } from './utils/format';
 
+const pkg = require('../package.json');
+
 function getClient(): FilecoinClient {
   return new FilecoinClient(getRpcUrl(), getIpfsGateway());
 }
 
 export async function startMcpServer() {
-  const server = new McpServer({ name: 'filecoin-cli', version: '1.0.0' });
+  const server = new McpServer({ name: 'filecoin-cli', version: pkg.version });
 
   server.tool('filecoin_chain', 'Get Filecoin chain head info', {}, async () => {
     const client = getClient();
