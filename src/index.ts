@@ -8,6 +8,7 @@ import { makeActorCommand } from './commands/actor';
 import { makeIpfsCommand } from './commands/ipfs';
 import { makeAddressCommand } from './commands/address';
 import { makeMessageCommand, makeTransferCommand } from './commands/message';
+import { makeStoreCommand, makeRetrieveCommand } from './commands/store-retrieve';
 
 const pkg = require('../package.json');
 
@@ -26,6 +27,8 @@ program.addCommand(makeIpfsCommand());
 program.addCommand(makeAddressCommand());
 program.addCommand(makeMessageCommand());
 program.addCommand(makeTransferCommand());
+program.addCommand(makeStoreCommand());
+program.addCommand(makeRetrieveCommand());
 
 // MCP server subcommand
 program

@@ -43,6 +43,7 @@ import { makeActorCommand } from '../../src/commands/actor';
 import { makeIpfsCommand } from '../../src/commands/ipfs';
 import { makeAddressCommand } from '../../src/commands/address';
 import { makeMessageCommand, makeTransferCommand } from '../../src/commands/message';
+import { makeStoreCommand, makeRetrieveCommand } from '../../src/commands/store-retrieve';
 
 describe('commands', () => {
   const originalLog = console.log;
@@ -148,5 +149,18 @@ describe('commands', () => {
     test('pretty output', async () => { const cmd = makeTransferCommand(); await cmd.parseAsync(['--from', 'f1from', '--to', 'f1to', '--value', '99', '--pretty'], { from: 'user' }); expect(stdoutOutput.join('\n')).toContain('Unsigned FIL Transfer'); });
     test('rpc-backed error', async () => { mockGetMessageNonce.mockRejectedValue(new Error('boom')); const cmd = makeTransferCommand(); await cmd.parseAsync(['--from', 'f1from', '--to', 'f1to', '--value', '99'], { from: 'user' }); expect(JSON.parse(stderrOutput[0]).code).toBe('INVALID_INPUT'); });
     test('non-Error', async () => { mockGetNetworkName.mockRejectedValue(undefined); const cmd = makeTransferCommand(); await cmd.parseAsync(['--from', 'f1from', '--to', 'f1to', '--value', '99'], { from: 'user' }); expect(JSON.parse(stderrOutput[0]).code).toBe('UNKNOWN'); });
+  });
+
+  describe('retrieve', () => {
+    test('JSON content output', async () => { const cmd = makeRetrieveCommand(); await cmd.parseAsync(['--cid', 'QmTest'], { from: 'user' }); const o = JSON.parse(stdoutOutput.join('')); expect(o.kind).toBe('filecoin_retrieve_result'); expect(o.cid).toBe('QmTest'); });
+    test('resolve-only output', async () => { const cmd = makeRetrieveCommand(); await cmd.parseAsync(['--cid', 'QmTest', '--resolve-only'], { from: 'user' }); const o = JSON.parse(stdoutOutput.join('')); expect(o.kind).toBe('filecoin_retrieve_plan'); expect(o.mode).toBe('resolve'); });
+    test('pretty output', async () => { const cmd = makeRetrieveCommand(); await cmd.parseAsync(['--cid', 'QmTest', '--pretty'], { from: 'user' }); expect(stdoutOutput.join('\n')).toContain('Retrieve: QmTest'); });
+    test('error output', async () => { mockFetchIpfs.mockRejectedValue(new Error('fail')); const cmd = makeRetrieveCommand(); await cmd.parseAsync(['--cid', 'QmTest'], { from: 'user' }); expect(JSON.parse(stderrOutput[0]).code).toBe('RETRIEVE_ERROR'); });
+  });
+
+  describe('store', () => {
+    test('JSON output', async () => { const cmd = makeStoreCommand(); await cmd.parseAsync(['--from', 'f1from', '--to', 'f01234', '--method', '2', '--params', 'AQI=', '--cid', 'bafy123', '--provider', 'f099'], { from: 'user' }); const o = JSON.parse(stdoutOutput.join('')); expect(o.intent).toBe('store'); expect(o.storage.cid).toBe('bafy123'); expect(o.message.Method).toBe(2); });
+    test('pretty output', async () => { const cmd = makeStoreCommand(); await cmd.parseAsync(['--from', 'f1from', '--to', 'f01234', '--method', '2', '--params', 'AQI=', '--pretty'], { from: 'user' }); expect(stdoutOutput.join('\n')).toContain('Store Message'); });
+    test('error output', async () => { mockGetNetworkName.mockRejectedValue(new Error('fail')); const cmd = makeStoreCommand(); await cmd.parseAsync(['--from', 'f1from', '--to', 'f01234', '--method', '2', '--params', 'AQI='], { from: 'user' }); expect(JSON.parse(stderrOutput[0]).code).toBe('STORE_ERROR'); });
   });
 });

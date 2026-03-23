@@ -45,7 +45,7 @@ function normalizeEstimatedMessage(message: Record<string, unknown>): Pick<Unsig
   };
 }
 
-async function buildUnsignedMessage(client: FilecoinClient, input: {
+export async function buildUnsignedMessage(client: FilecoinClient, input: {
   from: string;
   to: string;
   value: string;
@@ -83,7 +83,7 @@ async function buildUnsignedMessage(client: FilecoinClient, input: {
   return message;
 }
 
-function toMoonPayPayload(network: string, message: UnsignedFilecoinMessage) {
+export function toMoonPayPayload(network: string, message: UnsignedFilecoinMessage) {
   return {
     chain: 'filecoin',
     network,
